@@ -4,7 +4,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
 import { TextField, Button, Container, Typography, Box, Alert, CircularProgress } from '@mui/material';
 
-const ADMIN_EMAIL = "work.jonathanthomas@gmail.com"; // Your admin email
+const ADMIN_EMAIL = "admin@shemarket.com"; // Your admin email
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -21,7 +21,7 @@ export default function Login() {
     await signInWithEmailAndPassword(auth, email, password);
     
     // Redirect admin to admin dashboard
-    if (email === "work.jonathanthomas@gmail.com") {
+    if (email === "admin@shemarket.com") {
       navigate('/admin');
     } else {
       navigate('/home');
@@ -91,7 +91,7 @@ export default function Login() {
           
           <Typography variant="body1" align="center" sx={{ mt: 2 }}>
             Don't have an account?{' '}
-            <Link to="/" style={{ textDecoration: 'none', color: '#1976d2' }}>
+            <Link to="/register" style={{ textDecoration: 'none', color: '#1976d2' }}>
               Register here
             </Link>
           </Typography>

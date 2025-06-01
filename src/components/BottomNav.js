@@ -18,9 +18,7 @@ export default function BottomNav() {
     navigate(`/${newValue}`);
   };
 
-  if (currentUser?.email === "admin@shemarket.com") {
-    return null; // Hide bottom nav for admin
-  }
+  if (!currentUser) return null;
 
   return (
     <BottomNavigation 
@@ -37,7 +35,7 @@ export default function BottomNav() {
     >
       <BottomNavigationAction
         label="Home"
-        value=""
+        value="home"
         icon={<HomeIcon />}
       />
       <BottomNavigationAction

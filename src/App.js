@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import AdminRoute from './components/AdminRoute';
@@ -21,16 +21,17 @@ function AppContent() {
 
   return (
     <Box sx={{ pb: 7 }}>
-      <Routes>
-        <Route path="/" element={<Register />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-        <Route path="/home" element={<PrivateRoute><Home /></PrivateRoute>} />
-        <Route path="/sell" element={<PrivateRoute><SellDashboard /></PrivateRoute>} />
-        <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
-        <Route path="/chat" element={<PrivateRoute><Chat /></PrivateRoute>} />
-        <Route path="/product/:id" element={<PrivateRoute><ProductDetail /></PrivateRoute>} />
-      </Routes>
+       <Routes>
+            <Route path="/register" element={<Register />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+            <Route path="/home" element={<PrivateRoute><Home /></PrivateRoute>} />
+            <Route path="/" element={<Navigate to={currentUser ? "/home" : "/login"} />} />
+            <Route path="/sell" element={<PrivateRoute><SellDashboard /></PrivateRoute>} />
+            <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+            <Route path="/chat" element={<PrivateRoute><Chat /></PrivateRoute>} />
+            <Route path="/product/:id" element={<PrivateRoute><ProductDetail /></PrivateRoute>} />
+          </Routes>
       {currentUser && <BottomNav />}
     </Box>
   );

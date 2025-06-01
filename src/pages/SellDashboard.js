@@ -1,9 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { db, storage } from '../firebase';
-import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { collection, query, where, getDocs, addDoc, doc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../context/AuthContext';
-import { Button, Container, Typography, TextField, Grid, Card, CardContent, CardMedia, Box } from '@mui/material';
+import { 
+  Button, 
+  Container, 
+  Typography, 
+  Grid, 
+  Card, 
+  CardContent, 
+  CardMedia, 
+  Box,
+  TextField,
+  Alert,
+  CircularProgress,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel
+} from '@mui/material';
 
 export default function SellDashboard() {
   const { currentUser } = useAuth();
@@ -17,37 +33,71 @@ export default function SellDashboard() {
     image: null
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
+  // Fetch products and orders
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       try {
-        const q = query(collection(db, "products"), where("sellerId", "==", currentUser.uid));
-        const querySnapshot = await getDocs(q);
-        const productsData = [];
-        querySnapshot.forEach((doc) => {
-          productsData.push({ id: doc.id, ...doc.data() });
-        });
+        setLoading(true);
+        
+        // Fetch products
+        const productsQuery = query(
+          collection(db, "products"), 
+          where("sellerId", "==", currentUser.uid)
+        );
+        const productsSnapshot = await getDocs(productsQuery);
+        const productsData = productsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
         setProducts(productsData);
         
-        // Fetch orders for these products
-        const ordersQuery = query(collection(db, "orders"), where("sellerId", "==", currentUser.uid));
+        // Fetch orders
+        const ordersQuery = query(
+          collection(db, "orders"), 
+          where("sellerId", "==", currentUser.uid)
+        );
         const ordersSnapshot = await getDocs(ordersQuery);
-        const ordersData = [];
-        ordersSnapshot.forEach((doc) => {
-          ordersData.push({ id: doc.id, ...doc.data() });
-        });
+        const ordersData = ordersSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
         setOrders(ordersData);
         
-        setLoading(false);
       } catch (err) {
-        console.error("Error fetching data: ", err);
+        setError('Error fetching data: ' + err.message);
+        console.error("Error fetching data:", err);
+      } finally {
         setLoading(false);
       }
     };
 
     if (currentUser) {
-      fetchProducts();
+      fetchData();
     }
+  }, [currentUser]);
+
+  // Real-time updates for orders
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const ordersQuery = query(
+      collection(db, "orders"),
+      where("sellerId", "==", currentUser.uid)
+    );
+
+    const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
+      const ordersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setOrders(ordersData);
+    });
+
+    return () => unsubscribe();
   }, [currentUser]);
 
   const handleInputChange = (e) => {
@@ -56,32 +106,42 @@ export default function SellDashboard() {
   };
 
   const handleImageChange = (e) => {
-    setNewProduct(prev => ({ ...prev, image: e.target.files[0] }));
+    if (e.target.files[0]) {
+      setNewProduct(prev => ({ ...prev, image: e.target.files[0] }));
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
+    setSuccess('');
     
     try {
-      // 1. Upload image to Firebase Storage
+      // Validate inputs
+      if (!newProduct.name || !newProduct.description || !newProduct.price || !newProduct.image) {
+        throw new Error('All fields are required');
+      }
+
+      // Upload image
       const storageRef = ref(storage, `products/${currentUser.uid}/${Date.now()}`);
       await uploadBytes(storageRef, newProduct.image);
       const imageUrl = await getDownloadURL(storageRef);
-      
-      // 2. Add product to Firestore
+
+      // Add product to Firestore
       await addDoc(collection(db, "products"), {
         name: newProduct.name,
         description: newProduct.description,
         price: parseFloat(newProduct.price),
         imageUrl,
         sellerId: currentUser.uid,
-        sellerName: currentUser.displayName || currentUser.email,
-        approved: false, // Needs admin approval
-        createdAt: new Date()
+        sellerName: currentUser.name || currentUser.email,
+        approved: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
       });
-      
-      // 3. Reset form
+
+      // Reset form and show success
       setNewProduct({
         name: '',
         description: '',
@@ -89,17 +149,41 @@ export default function SellDashboard() {
         image: null
       });
       setShowAddForm(false);
-      alert('Product submitted for approval');
+      setSuccess('Product submitted for approval');
+      setTimeout(() => setSuccess(''), 3000);
+
     } catch (err) {
+      setError(err.message);
       console.error("Error adding product:", err);
-      alert('Failed to add product: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleStatusUpdate = async (orderId, newStatus) => {
+    try {
+      await updateDoc(doc(db, "orders", orderId), {
+        status: newStatus,
+        updatedAt: new Date()
+      });
+      setSuccess('Order status updated');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError('Failed to update order: ' + err.message);
+      console.error("Error updating order:", err);
+    }
+  };
+
+  const filteredOrders = statusFilter === 'all' 
+    ? orders 
+    : orders.filter(order => order.status === statusFilter);
+
   if (loading) {
-    return <Container>Loading...</Container>;
+    return (
+      <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <CircularProgress />
+      </Container>
+    );
   }
 
   return (
@@ -108,20 +192,24 @@ export default function SellDashboard() {
         Seller Dashboard
       </Typography>
       
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+      
+      {/* Products Section */}
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h5" gutterBottom>
-          Your Products
-        </Typography>
-        <Button 
-          variant="contained" 
-          onClick={() => setShowAddForm(!showAddForm)}
-          sx={{ mb: 2 }}
-        >
-          {showAddForm ? 'Cancel' : 'Add New Product'}
-        </Button>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h5">Your Products</Typography>
+          <Button 
+            variant="contained" 
+            onClick={() => setShowAddForm(!showAddForm)}
+            disabled={loading}
+          >
+            {showAddForm ? 'Cancel' : 'Add New Product'}
+          </Button>
+        </Box>
         
         {showAddForm && (
-          <Box component="form" onSubmit={handleSubmit} sx={{ mb: 4, p: 2, border: '1px solid #ddd', borderRadius: 1 }}>
+          <Box component="form" onSubmit={handleSubmit} sx={{ mb: 4, p: 3, border: '1px solid #ddd', borderRadius: 1 }}>
             <TextField
               label="Product Name"
               name="name"
@@ -151,84 +239,150 @@ export default function SellDashboard() {
               fullWidth
               required
               margin="normal"
+              inputProps={{ min: 1, step: 0.01 }}
             />
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              style={{ margin: '16px 0' }}
-              required
-            />
-            <Button type="submit" variant="contained" disabled={loading}>
-              Submit Product
+            <Box sx={{ mt: 2, mb: 2 }}>
+              <input
+                accept="image/*"
+                type="file"
+                onChange={handleImageChange}
+                id="product-image-upload"
+                style={{ display: 'none' }}
+              />
+              <label htmlFor="product-image-upload">
+                <Button variant="outlined" component="span">
+                  Upload Product Image
+                </Button>
+              </label>
+              {newProduct.image && (
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  {newProduct.image.name}
+                </Typography>
+              )}
+            </Box>
+            <Button 
+              type="submit" 
+              variant="contained" 
+              disabled={loading}
+              sx={{ mt: 2 }}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Submit Product'}
             </Button>
           </Box>
         )}
         
         <Grid container spacing={3}>
-          {products.map((product) => (
-            <Grid item key={product.id} xs={12} sm={6} md={4}>
-              <Card>
-                <CardMedia
-                  component="img"
-                  height="140"
-                  image={product.imageUrl || "https://via.placeholder.com/200"}
-                  alt={product.name}
-                />
-                <CardContent>
-                  <Typography gutterBottom variant="h6">
-                    {product.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {product.description}
-                  </Typography>
-                  <Typography variant="h6" sx={{ mt: 1 }}>
-                    ₹{product.price}
-                  </Typography>
-                  <Typography variant="body2" color={product.approved ? 'success.main' : 'warning.main'}>
-                    {product.approved ? 'Approved' : 'Pending Approval'}
-                  </Typography>
-                </CardContent>
-              </Card>
+          {products.length === 0 ? (
+            <Grid item xs={12}>
+              <Typography>No products found</Typography>
             </Grid>
-          ))}
+          ) : (
+            products.map((product) => (
+              <Grid item key={product.id} xs={12} sm={6} md={4}>
+                <Card>
+                  <CardMedia
+                    component="img"
+                    height="200"
+                    image={product.imageUrl || "https://via.placeholder.com/200"}
+                    alt={product.name}
+                  />
+                  <CardContent>
+                    <Typography gutterBottom variant="h6">
+                      {product.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      {product.description}
+                    </Typography>
+                    <Typography variant="h6" color="primary">
+                      ₹{product.price.toFixed(2)}
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      color={product.approved ? 'success.main' : 'warning.main'}
+                      sx={{ mt: 1 }}
+                    >
+                      {product.approved ? 'Approved' : 'Pending Approval'}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))
+          )}
         </Grid>
       </Box>
       
+      {/* Orders Section */}
       <Box>
-        <Typography variant="h5" gutterBottom>
-          Your Orders
-        </Typography>
-        {orders.length === 0 ? (
-          <Typography>No orders yet</Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h5">Your Orders ({orders.length})</Typography>
+          <FormControl sx={{ minWidth: 120 }} size="small">
+            <InputLabel>Filter by Status</InputLabel>
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              label="Filter by Status"
+            >
+              <MenuItem value="all">All Orders</MenuItem>
+              <MenuItem value="pending">Pending</MenuItem>
+              <MenuItem value="processing">Processing</MenuItem>
+              <MenuItem value="shipped">Shipped</MenuItem>
+              <MenuItem value="delivered">Delivered</MenuItem>
+              <MenuItem value="cancelled">Cancelled</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+        
+        {filteredOrders.length === 0 ? (
+          <Typography>No orders found</Typography>
         ) : (
           <Grid container spacing={3}>
-            {orders.map((order) => (
-              <Grid item key={order.id} xs={12} sm={6}>
+            {filteredOrders.map((order) => (
+              <Grid item key={order.id} xs={12} sm={6} md={4}>
                 <Card>
+                  <CardMedia
+                    component="img"
+                    height="140"
+                    image={order.productImage || "https://via.placeholder.com/200"}
+                    alt={order.productName}
+                  />
                   <CardContent>
-                    <Typography variant="h6">
-                      Order for: {order.productName}
+                    <Typography gutterBottom variant="h6">
+                      {order.productName}
                     </Typography>
                     <Typography variant="body2">
-                      Buyer: {order.buyerName}
+                      <strong>Buyer:</strong> {order.buyerName}
                     </Typography>
                     <Typography variant="body2">
-                      Phone: {order.buyerPhone}
+                      <strong>Phone:</strong> {order.buyerPhone}
                     </Typography>
-                    <Typography variant="body2">
-                      Address: {order.buyerAddress}
+                    <Typography variant="body2" sx={{ mb: 1 }}>
+                      <strong>Address:</strong> {order.buyerAddress}
                     </Typography>
-                    <Typography variant="body2" sx={{ mt: 1 }}>
-                      Status: {order.status || 'Processing'}
+                    <Typography variant="body2" sx={{ mb: 2 }}>
+                      <strong>Status:</strong> {order.status || 'Pending'}
                     </Typography>
-                    <Button 
-                      variant="outlined" 
-                      sx={{ mt: 1 }}
-                      onClick={() => window.open(`tel:${order.buyerPhone}`)}
-                    >
-                      Contact Buyer
-                    </Button>
+                    
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      <Button 
+                        variant="outlined" 
+                        size="small"
+                        onClick={() => window.open(`tel:${order.buyerPhone}`)}
+                      >
+                        Contact Buyer
+                      </Button>
+                      <FormControl size="small" sx={{ minWidth: 120 }}>
+                        <Select
+                          value={order.status || 'pending'}
+                          onChange={(e) => handleStatusUpdate(order.id, e.target.value)}
+                        >
+                          <MenuItem value="pending">Pending</MenuItem>
+                          <MenuItem value="processing">Processing</MenuItem>
+                          <MenuItem value="shipped">Shipped</MenuItem>
+                          <MenuItem value="delivered">Delivered</MenuItem>
+                          <MenuItem value="cancelled">Cancelled</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Box>
                   </CardContent>
                 </Card>
               </Grid>

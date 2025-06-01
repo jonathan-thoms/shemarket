@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">shemarket</string>
+    <string name="title_activity_main">shemarket</string>
+    <string name="package_name">com.project.shemarket</string>
+    <string name="custom_url_scheme">com.project.shemarket</string>
+</resources>
