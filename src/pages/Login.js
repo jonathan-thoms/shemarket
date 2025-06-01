@@ -14,24 +14,24 @@ export default function Login() {
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    try {
-      setLoading(true);
-      await signInWithEmailAndPassword(auth, email, password);
-      
-      // Redirect to admin dashboard if admin email
-      if (email === ADMIN_EMAIL) {
-        navigate('/admin');
-      } else {
-        navigate('/home');
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+  e.preventDefault();
+  setError('');
+  try {
+    setLoading(true);
+    await signInWithEmailAndPassword(auth, email, password);
+    
+    // Redirect admin to admin dashboard
+    if (email === "work.jonathanthomas@gmail.com") {
+      navigate('/admin');
+    } else {
+      navigate('/home');
     }
-  };
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <Container maxWidth="sm">

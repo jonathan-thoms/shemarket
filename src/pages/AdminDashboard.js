@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore'; // Added 'doc' import
+import { deleteDoc } from 'firebase/firestore';
+
 import { useAuth } from '../context/AuthContext';
 import { Container, Typography, Grid, Card, CardContent, CardMedia, Button, Box } from '@mui/material';
 
@@ -41,26 +43,24 @@ export default function AdminDashboard() {
   }, []);
 
   const handleApproveProduct = async (productId) => {
-    try {
-      await updateDoc(doc(db, "products", productId), {
-        approved: true
-      });
-      setPendingProducts(prev => prev.filter(p => p.id !== productId));
-    } catch (err) {
-      console.error("Error approving product: ", err);
-    }
-  };
+  try {
+    await updateDoc(doc(db, "products", productId), {
+      approved: true
+    });
+    setPendingProducts(prev => prev.filter(p => p.id !== productId));
+  } catch (err) {
+    console.error("Error approving product:", err);
+  }
+};
 
-  const handleRejectProduct = async (productId) => {
-    try {
-      await updateDoc(doc(db, "products", productId), {
-        rejected: true
-      });
-      setPendingProducts(prev => prev.filter(p => p.id !== productId));
-    } catch (err) {
-      console.error("Error rejecting product: ", err);
-    }
-  };
+const handleRejectProduct = async (productId) => {
+  try {
+    await deleteDoc(doc(db, "products", productId));
+    setPendingProducts(prev => prev.filter(p => p.id !== productId));
+  } catch (err) {
+    console.error("Error rejecting product:", err);
+  }
+};
 
   if (loading) {
     return <Container>Loading...</Container>;

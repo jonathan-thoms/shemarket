@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase';
+import { db, storage } from '../firebase';
 import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../context/AuthContext';
@@ -64,15 +64,12 @@ export default function SellDashboard() {
     setLoading(true);
     
     try {
-      const storage = getStorage();
-      let imageUrl = '';
+      // 1. Upload image to Firebase Storage
+      const storageRef = ref(storage, `products/${currentUser.uid}/${Date.now()}`);
+      await uploadBytes(storageRef, newProduct.image);
+      const imageUrl = await getDownloadURL(storageRef);
       
-      if (newProduct.image) {
-        const storageRef = ref(storage, `products/${currentUser.uid}/${Date.now()}`);
-        await uploadBytes(storageRef, newProduct.image);
-        imageUrl = await getDownloadURL(storageRef);
-      }
-      
+      // 2. Add product to Firestore
       await addDoc(collection(db, "products"), {
         name: newProduct.name,
         description: newProduct.description,
@@ -84,6 +81,7 @@ export default function SellDashboard() {
         createdAt: new Date()
       });
       
+      // 3. Reset form
       setNewProduct({
         name: '',
         description: '',
@@ -91,10 +89,11 @@ export default function SellDashboard() {
         image: null
       });
       setShowAddForm(false);
-      setLoading(false);
       alert('Product submitted for approval');
     } catch (err) {
-      console.error("Error adding product: ", err);
+      console.error("Error adding product:", err);
+      alert('Failed to add product: ' + err.message);
+    } finally {
       setLoading(false);
     }
   };

@@ -5,7 +5,7 @@ export default function AdminRoute({ children }) {
   const { currentUser, isAdmin } = useAuth();
   
   if (!currentUser || !isAdmin) {
-    return <Navigate to="/" />;
+    return <Navigate to="/login" />;
   }
 
   return children;

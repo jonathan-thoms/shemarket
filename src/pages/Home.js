@@ -8,22 +8,25 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const q = query(collection(db, "products"), where("approved", "==", true));
-        const querySnapshot = await getDocs(q);
-        const productsData = [];
-        querySnapshot.forEach((doc) => {
-          productsData.push({ id: doc.id, ...doc.data() });
-        });
-        setProducts(productsData);
-        setLoading(false);
-      } catch (err) {
-        console.error("Error fetching products: ", err);
-        setLoading(false);
-      }
-    };
-
+    // In the fetchProducts function of Home.js
+const fetchProducts = async () => {
+  try {
+    const q = query(
+      collection(db, "products"), 
+      where("approved", "==", true)
+    );
+    const querySnapshot = await getDocs(q);
+    const productsData = [];
+    querySnapshot.forEach((doc) => {
+      productsData.push({ id: doc.id, ...doc.data() });
+    });
+    setProducts(productsData);
+    setLoading(false);
+  } catch (err) {
+    console.error("Error fetching products:", err);
+    setLoading(false);
+  }
+};
     fetchProducts();
   }, []);
 

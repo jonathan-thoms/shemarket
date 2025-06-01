@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import AdminRoute from './components/AdminRoute';
@@ -9,9 +10,11 @@ import AdminDashboard from './pages/AdminDashboard';
 import SellDashboard from './pages/SellDashboard';
 import Profile from './pages/Profile';
 import Chat from './pages/Chat';
+import ProductDetail from './pages/ProductDetail';
 import BottomNav from './components/BottomNav';
 import { Box } from '@mui/material';
 import { useAuth } from './context/AuthContext';
+
 
 function AppContent() {
   const { currentUser } = useAuth();
@@ -21,14 +24,12 @@ function AppContent() {
       <Routes>
         <Route path="/" element={<Register />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/admin" element={<AdminDashboard />}/>
-        <Route path="/" element={!currentUser ? <Register /> : <Navigate to="/home" />} />
-        <Route path="/login" element={!currentUser ? <Login /> : <Navigate to="/home" />} />
         <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="/home" element={<PrivateRoute><Home /></PrivateRoute>} />
         <Route path="/sell" element={<PrivateRoute><SellDashboard /></PrivateRoute>} />
         <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
         <Route path="/chat" element={<PrivateRoute><Chat /></PrivateRoute>} />
+        <Route path="/product/:id" element={<PrivateRoute><ProductDetail /></PrivateRoute>} />
       </Routes>
       {currentUser && <BottomNav />}
     </Box>
